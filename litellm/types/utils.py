@@ -3162,6 +3162,7 @@ class LlmProviders(str, Enum):
     AMAZON_NOVA = "amazon_nova"
     A2A_AGENT = "a2a_agent"
     LANGGRAPH = "langgraph"
+    THESYS = "thesys"
     MINIMAX = "minimax"
     SYNTHETIC = "synthetic"
     APERTIS = "apertis"

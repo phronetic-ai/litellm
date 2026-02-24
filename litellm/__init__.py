@@ -1492,6 +1492,8 @@ if TYPE_CHECKING:
     from .llms.jina_ai.embedding.transformation import JinaAIEmbeddingConfig as JinaAIEmbeddingConfig
     from .llms.xai.chat.transformation import XAIChatConfig as XAIChatConfig
     from .llms.zai.chat.transformation import ZAIChatConfig as ZAIChatConfig
+    from .llms.thesys.chat.transformation import ThesysChatConfig as ThesysChatConfig
+
     from .llms.aiml.chat.transformation import AIMLChatConfig as AIMLChatConfig
     from .llms.volcengine.chat.transformation import VolcEngineChatConfig as VolcEngineChatConfig, VolcEngineChatConfig as VolcEngineConfig
     from .llms.codestral.completion.transformation import CodestralTextCompletionConfig as CodestralTextCompletionConfig

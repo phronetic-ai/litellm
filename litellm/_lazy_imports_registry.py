@@ -254,6 +254,7 @@ LLM_CONFIG_NAMES = (
     "JinaAIEmbeddingConfig",
     "XAIChatConfig",
     "ZAIChatConfig",
+    "ThesysChatConfig",
     "AIMLChatConfig",
     "VolcEngineChatConfig",
     "CodestralTextCompletionConfig",
@@ -981,6 +982,7 @@ _LLM_CONFIGS_IMPORT_MAP = {
     ),
     "XAIChatConfig": (".llms.xai.chat.transformation", "XAIChatConfig"),
     "ZAIChatConfig": (".llms.zai.chat.transformation", "ZAIChatConfig"),
+    "ThesysChatConfig": (".llms.thesys.chat.transformation", "ThesysChatConfig"),
     "AIMLChatConfig": (".llms.aiml.chat.transformation", "AIMLChatConfig"),
     "VolcEngineChatConfig": (
         ".llms.volcengine.chat.transformation",
