@@ -54,6 +54,7 @@ import sapLogo from "../../public/assets/logos/sap.png";
 import scxAiLogo from "../../public/assets/logos/scx_ai.svg";
 import snowflakeLogo from "../../public/assets/logos/snowflake.svg";
 import sonioxLogo from "../../public/assets/logos/soniox.svg";
+import thesysLogo from "../../public/assets/logos/thesys.svg";
 import togetheraiLogo from "../../public/assets/logos/togetherai.svg";
 import topazLogo from "../../public/assets/logos/topaz.svg";
 import v0Logo from "../../public/assets/logos/v0.svg";
@@ -178,6 +179,7 @@ export enum Providers {
   xAI = "xAI",
   XINFERENCE = "Xinference",
   ZAI = "Z.AI (Zhipu AI)",
+  Thesys = "Thesys",
 }
 
 export const provider_map: Record<string, string> = {
@@ -293,6 +295,7 @@ export const provider_map: Record<string, string> = {
   xAI: "xai",
   XINFERENCE: "xinference",
   ZAI: "zai",
+  Thesys: "thesys",
 };
 
 const standaloneSubproviderSlugs = new Set<string>(["bedrock_mantle"]);
@@ -387,6 +390,7 @@ export const providerLogoMap: Partial<Record<Providers, string>> = {
   [Providers.WATSONX_TEXT]: watsonxLogo.src,
   [Providers.xAI]: xaiLogo.src,
   [Providers.XINFERENCE]: xinferenceLogo.src,
+  [Providers.Thesys]: thesysLogo.src,
 };
 
 export const getProviderLogoAndName = (providerValue: string): { logo: string; displayName: string } => {
