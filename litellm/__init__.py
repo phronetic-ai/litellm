@@ -1964,6 +1964,8 @@ if TYPE_CHECKING:
     )
     from .llms.xai.chat.transformation import XAIChatConfig as XAIChatConfig
     from .llms.zai.chat.transformation import ZAIChatConfig as ZAIChatConfig
+    from .llms.thesys.chat.transformation import ThesysChatConfig as ThesysChatConfig
+
     from .llms.aiml.chat.transformation import AIMLChatConfig as AIMLChatConfig
     from .llms.volcengine.chat.transformation import (
         VolcEngineChatConfig as VolcEngineChatConfig,
