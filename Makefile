@@ -6,7 +6,8 @@
 	test-proxy-unit-a test-proxy-unit-b test-integration test-unit-helm \
 	info lint lint-dev format \
 	install-dev install-proxy-dev install-test-deps \
-	install-helm-unittest check-circular-imports check-import-safety
+	install-helm-unittest check-circular-imports check-import-safety \
+	push-image
 
 # Default target
 help:
@@ -39,6 +40,11 @@ help:
 	@echo "  make test-proxy-unit-b  - Run proxy_unit_tests (p-z, ~28 files)"
 	@echo "  make test-integration   - Run integration tests"
 	@echo "  make test-unit-helm     - Run helm unit tests"
+	@echo "  make push-image         - Build ARM64 image and push to ECR"
+
+# Docker image build and push (ARM64)
+push-image:
+	docker compose build --push litellm
 
 # Keep PIP simple for edge cases:
 PIP := $(shell command -v pip > /dev/null 2>&1 && echo "pip" || echo "python3 -m pip")

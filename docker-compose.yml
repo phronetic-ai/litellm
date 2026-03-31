@@ -4,6 +4,8 @@ services:
       context: .
       args:
         target: runtime
+      platforms:
+        - linux/arm64
     image: 278699821793.dkr.ecr.ap-south-1.amazonaws.com/devtools/litellm:main
     #########################################
     ## Uncomment these lines to start proxy with a config.yaml file ##
