@@ -576,6 +576,7 @@ class LiteLLMRoutes(enum.Enum):
             "/public/agent_hub",
             "/public/mcp_hub",
             "/public/litellm_model_cost_map",
+            "/bedrock/models/ui",
         ]
     )
 

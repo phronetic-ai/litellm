@@ -43,6 +43,26 @@ model LiteLLM_CredentialsTable {
   updated_by String
 }
 
+// Bedrock model registry — maps whitelisted model_id to inference_profile_arn
+model LiteLLM_BedrockModelRegistry {
+  model_id              String   @id
+  inference_profile_arn String?
+  aws_role_name         String?  // IAM role to assume when calling cross-account ARNs
+  display_name          String?
+  mode                  String?
+  input_cost_per_token  Float?
+  output_cost_per_token Float?
+  max_input_tokens      Int?
+  max_output_tokens     Int?
+  capabilities          Json?
+  tags                  String[] @default([])
+  enabled               Boolean  @default(true)
+  created_at            DateTime @default(now()) @map("created_at")
+  created_by            String
+  updated_at            DateTime @default(now()) @updatedAt @map("updated_at")
+  updated_by            String
+}
+
 // Models on proxy
 model LiteLLM_ProxyModelTable {
   model_id String @id @default(uuid())

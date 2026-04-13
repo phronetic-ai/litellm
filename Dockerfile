@@ -106,6 +106,8 @@ RUN sed -i 's/\r$//' docker/install_auto_router.sh && chmod +x docker/install_au
 
 # Generate prisma client using the correct schema
 RUN prisma generate --schema=./litellm/proxy/schema.prisma
+# Validate custom schema (catches schema errors at build time, not at runtime)
+RUN prisma validate --schema=./litellm/proxy/schema.prisma
 # Convert Windows line endings to Unix for entrypoint scripts
 RUN sed -i 's/\r$//' docker/entrypoint.sh && chmod +x docker/entrypoint.sh
 RUN sed -i 's/\r$//' docker/prod_entrypoint.sh && chmod +x docker/prod_entrypoint.sh
@@ -114,6 +116,11 @@ EXPOSE 4000/tcp
 
 RUN apk add --no-cache supervisor
 COPY docker/supervisord.conf /etc/supervisord.conf
+
+# Disable LiteLLM's built-in auto-migration on startup.
+# Migrations are run explicitly in prod_entrypoint.sh via `prisma migrate deploy`
+# before the server starts, so the proxy never needs to touch the schema itself.
+ENV DISABLE_SCHEMA_UPDATE=true
 
 ENTRYPOINT ["docker/prod_entrypoint.sh"]
 

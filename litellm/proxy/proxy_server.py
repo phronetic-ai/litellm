@@ -379,6 +379,10 @@ from litellm.proxy.management_endpoints.model_management_endpoints import (
     _add_team_model_to_db,
     _deduplicate_litellm_router_models,
 )
+from litellm.proxy.management_endpoints.bedrock_model_registry_endpoints import (
+    load_bedrock_registry_from_db,
+    router as bedrock_model_registry_router,
+)
 from litellm.proxy.management_endpoints.model_management_endpoints import (
     router as model_management_router,
 )
@@ -845,6 +849,10 @@ async def proxy_startup_event(app: FastAPI):  # noqa: PLR0915
                 prisma_client=prisma_client,
             )
         )
+
+    ## BEDROCK MODEL REGISTRY ##
+    if prisma_client is not None:
+        await load_bedrock_registry_from_db(prisma_client)
 
     ### START BATCH WRITING DB + CHECKING NEW MODELS###
     if prisma_client is not None:
@@ -12423,6 +12431,7 @@ app.include_router(vector_store_router)
 app.include_router(vector_store_management_router)
 app.include_router(vector_store_files_router)
 app.include_router(credential_router)
+app.include_router(bedrock_model_registry_router)
 app.include_router(llm_passthrough_router)
 app.include_router(mcp_management_router)
 app.include_router(anthropic_router)

@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bedrock Model Registry</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f5f5f5; color: #222; padding: 24px; }
+    h1 { font-size: 1.4rem; margin-bottom: 16px; }
+    .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+    .toolbar input { padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.85rem; width: 360px; }
+    button { padding: 6px 14px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+    .btn-primary { background: #2563eb; color: #fff; }
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-danger  { background: #dc2626; color: #fff; }
+    .btn-danger:hover  { background: #b91c1c; }
+    .btn-secondary { background: #e5e7eb; color: #222; }
+    .btn-secondary:hover { background: #d1d5db; }
+    .btn-sm { padding: 3px 10px; font-size: 0.8rem; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 6px;
+      overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.1); font-size: 0.85rem; }
+    th { background: #f0f4ff; text-align: left; padding: 10px 12px; border-bottom: 1px solid #e0e0e0; white-space: nowrap; }
+    td { padding: 9px 12px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #fafafa; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; }
+    .badge-green { background: #dcfce7; color: #166534; }
+    .badge-gray  { background: #f3f4f6; color: #6b7280; }
+    .tag { display: inline-block; background: #e0e7ff; color: #3730a3; border-radius: 3px;
+      padding: 1px 6px; font-size: 0.75rem; margin: 1px; }
+    .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4);
+      z-index: 100; justify-content: center; align-items: flex-start; padding-top: 60px; }
+    .modal-backdrop.open { display: flex; }
+    .modal { background: #fff; border-radius: 8px; padding: 24px; width: 560px; max-width: 95vw;
+      max-height: 80vh; overflow-y: auto; box-shadow: 0 8px 30px rgba(0,0,0,.2); }
+    .modal h2 { font-size: 1.1rem; margin-bottom: 16px; }
+    .form-row { margin-bottom: 12px; }
+    .form-row label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px; color: #555; }
+    .form-row input, .form-row select { width: 100%; padding: 7px 10px; border: 1px solid #ccc;
+      border-radius: 4px; font-size: 0.85rem; }
+    .form-row input:focus, .form-row select:focus { outline: none; border-color: #2563eb; }
+    .form-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+    .error { color: #dc2626; font-size: 0.82rem; margin-top: 8px; }
+    .empty { text-align: center; padding: 40px; color: #999; }
+    #status-bar { font-size: 0.82rem; padding: 6px 12px; border-radius: 4px; display: none; margin-bottom: 12px; }
+    #status-bar.success { background: #dcfce7; color: #166534; display: block; }
+    #status-bar.error   { background: #fee2e2; color: #991b1b; display: block; }
+    .hint { font-size: 0.78rem; margin-top: 6px; }
+    .sync-ok      { color: #166534; font-size: 0.78rem; }
+    .sync-warn    { color: #92400e; font-size: 0.78rem; cursor: help; }
+    .sync-unknown { color: #9ca3af; font-size: 0.78rem; }
+  </style>
+</head>
+<body>
+  <h1>Bedrock Model Registry</h1>
+
+  <div class="toolbar">
+    <input id="api-key" type="password" placeholder="LiteLLM API key (stored in browser)" />
+    <button class="btn-secondary" id="btn-save-key">Save Key</button>
+    <button class="btn-primary" id="btn-add">+ Add Model</button>
+    <button class="btn-secondary" id="btn-reload">Reload from DB</button>
+    <input id="search-box" type="search" placeholder="Search by name…" style="width:220px" />
+    <label style="font-size:0.82rem;display:flex;align-items:center;gap:4px;">
+      <input type="checkbox" id="show-disabled"> Show disabled
+    </label>
+  </div>
+
+  <div id="status-bar"></div>
+  <div id="table-wrap"></div>
+
+  <div class="modal-backdrop" id="modal">
+    <div class="modal">
+      <h2 id="modal-title">Add Model</h2>
+      <div class="form-row"><label>Model ID *</label>
+        <input id="f-model-id" placeholder="anthropic.claude-3-5-sonnet-20241022-v2:0" /></div>
+      <div class="form-row"><label>Inference Profile ARN</label>
+        <input id="f-arn" placeholder="arn:aws:bedrock:us-east-1:123456789:inference-profile/... (optional)" /></div>
+      <div class="form-row"><label>AWS Role ARN (for cross-account access)</label>
+        <input id="f-role" placeholder="arn:aws:iam::123456789:role/LiteLLMBedrockRole (optional)" /></div>
+      <div class="form-row"><label>Display Name</label><input id="f-display-name" /></div>
+      <div class="form-row"><label>Mode</label>
+        <select id="f-mode">
+          <option value="">-- select --</option>
+          <option>chat</option>
+          <option>completion</option>
+          <option>embedding</option>
+        </select>
+      </div>
+      <div class="form-row"><label>Input cost per token (USD)</label>
+        <input id="f-input-cost" type="number" step="any" placeholder="0.000003" /></div>
+      <div class="form-row"><label>Output cost per token (USD)</label>
+        <input id="f-output-cost" type="number" step="any" placeholder="0.000015" /></div>
+      <div class="form-row"><label>Max input tokens</label>
+        <input id="f-max-in" type="number" /></div>
+      <div class="form-row"><label>Max output tokens</label>
+        <input id="f-max-out" type="number" /></div>
+      <div class="form-row"><label>Tags (comma-separated)</label>
+        <input id="f-tags" placeholder="production, fast" /></div>
+      <div class="form-row" style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" id="f-enabled" checked style="margin:0;width:auto">
+        <label for="f-enabled" style="margin:0;font-weight:600;font-size:0.8rem;color:#555;">Enabled</label>
+      </div>
+      <div id="f-hint" class="hint" style="display:none"></div>
+      <div id="modal-error" class="error"></div>
+      <div class="form-actions">
+        <button class="btn-secondary btn-sm" id="btn-load-prices" type="button">Load LiteLLM prices</button>
+        <div style="flex:1"></div>
+        <button class="btn-secondary" id="btn-cancel">Cancel</button>
+        <button class="btn-primary" id="modal-submit">Add</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+    const BASE = window.location.origin;
+    let editingModelId = null;
+    let allModels = [];
+
+    function getKey() {
+      return document.getElementById('api-key').value
+        || localStorage.getItem('bedrock_registry_key') || '';
+    }
+
+    function authHeaders() {
+      return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getKey() };
+    }
+
+    function showStatus(msg, type) {
+      const el = document.getElementById('status-bar');
+      el.textContent = msg;
+      el.className = type;
+      setTimeout(function () { el.className = ''; el.style.display = ''; }, 4000);
+    }
+
+    async function fetchModels() {
+      const showDisabled = document.getElementById('show-disabled').checked;
+      const url = BASE + '/bedrock/models?enabled_only=' + (!showDisabled);
+      try {
+        const res = await fetch(url, { headers: authHeaders() });
+        if (!res.ok) { showStatus('Failed to load models: ' + res.status, 'error'); return; }
+        const data = await res.json();
+        allModels = data.data || [];
+        applySearch();
+        checkTableDrift(allModels);
+      } catch (e) { showStatus('Error: ' + e.message, 'error'); }
+    }
+
+    function applySearch() {
+      const q = document.getElementById('search-box').value.toLowerCase();
+      renderTable(q ? allModels.filter(function (m) {
+        return (m.id || '').toLowerCase().includes(q) || (m.display_name || '').toLowerCase().includes(q);
+      }) : allModels);
+    }
+
+    function renderTable(models) {
+      const wrap = document.getElementById('table-wrap');
+      wrap.textContent = '';
+      if (!models.length) {
+        const empty = document.createElement('div');
+        empty.className = 'empty';
+        empty.textContent = 'No models in registry. Click + Add Model to get started.';
+        wrap.appendChild(empty); return;
+      }
+      const table = document.createElement('table');
+      const thead = table.createTHead();
+      const hrow = thead.insertRow();
+      ['Model ID', 'Display Name', 'Mode', 'Input $/tok', 'Output $/tok', 'Tags', 'Status', 'Sync', 'Actions']
+        .forEach(function (h) { const th = document.createElement('th'); th.textContent = h; hrow.appendChild(th); });
+      const tbody = table.createTBody();
+      models.forEach(function (m, idx) {
+        const tr = tbody.insertRow();
+        const idCell = tr.insertCell();
+        const code = document.createElement('code');
+        code.style.fontSize = '0.8rem';
+        code.textContent = m.id;
+        idCell.appendChild(code);
+        tr.insertCell().textContent = m.display_name || '';
+        tr.insertCell().textContent = m.mode || '';
+        tr.insertCell().textContent = m.input_cost_per_token != null ? m.input_cost_per_token.toExponential(2) : '—';
+        tr.insertCell().textContent = m.output_cost_per_token != null ? m.output_cost_per_token.toExponential(2) : '—';
+        const tagsCell = tr.insertCell();
+        (m.tags || []).forEach(function (t) {
+          const span = document.createElement('span');
+          span.className = 'tag'; span.textContent = t; tagsCell.appendChild(span);
+        });
+        const badgeCell = tr.insertCell();
+        const badge = document.createElement('span');
+        badge.className = 'badge ' + (m.enabled ? 'badge-green' : 'badge-gray');
+        badge.textContent = m.enabled ? 'enabled' : 'disabled';
+        badgeCell.appendChild(badge);
+        const syncCell = tr.insertCell();
+        syncCell.className = 'sync-cell';
+        syncCell.style.textAlign = 'center';
+        const syncPh = document.createElement('span');
+        syncPh.className = 'sync-unknown'; syncPh.textContent = '…';
+        syncCell.appendChild(syncPh);
+        const actCell = tr.insertCell();
+        actCell.style.whiteSpace = 'nowrap';
+        const editBtn = document.createElement('button');
+        editBtn.className = 'btn-secondary btn-sm';
+        editBtn.textContent = 'Edit';
+        editBtn.dataset.idx = idx;
+        editBtn.addEventListener('click', async function () { await openEdit(allModels[parseInt(this.dataset.idx, 10)]); });
+        actCell.appendChild(editBtn);
+        const delBtn = document.createElement('button');
+        delBtn.className = 'btn-danger btn-sm';
+        delBtn.style.marginLeft = '4px';
+        delBtn.textContent = 'Delete';
+        delBtn.dataset.idx = idx;
+        delBtn.addEventListener('click', function () { deleteModel(allModels[parseInt(this.dataset.idx, 10)].id); });
+        actCell.appendChild(delBtn);
+      });
+      wrap.appendChild(table);
+    }
+
+    function openAdd() {
+      editingModelId = null;
+      document.getElementById('modal-title').textContent = 'Add Model';
+      document.getElementById('modal-submit').textContent = 'Add';
+      document.getElementById('f-model-id').disabled = false;
+      clearForm();
+      document.getElementById('f-enabled').checked = true;
+      document.getElementById('modal').classList.add('open');
+    }
+
+    async function openEdit(m) {
+      editingModelId = m.id;
+      document.getElementById('modal-title').textContent = 'Edit Model';
+      document.getElementById('modal-submit').textContent = 'Save';
+      document.getElementById('f-model-id').value = m.id;
+      document.getElementById('f-model-id').disabled = true;
+      document.getElementById('f-display-name').value = m.display_name || '';
+      document.getElementById('f-mode').value = m.mode || '';
+      document.getElementById('f-input-cost').value = m.input_cost_per_token != null ? m.input_cost_per_token : '';
+      document.getElementById('f-output-cost').value = m.output_cost_per_token != null ? m.output_cost_per_token : '';
+      document.getElementById('f-max-in').value = m.max_input_tokens != null ? m.max_input_tokens : '';
+      document.getElementById('f-max-out').value = m.max_output_tokens != null ? m.max_output_tokens : '';
+      document.getElementById('f-tags').value = (m.tags || []).join(', ');
+      document.getElementById('f-enabled').checked = m.enabled;
+      document.getElementById('modal-error').textContent = '';
+      const arnEl = document.getElementById('f-arn');
+      arnEl.value = 'Loading…'; arnEl.disabled = true;
+      document.getElementById('modal').classList.add('open');
+      try {
+        const res = await fetch(BASE + '/bedrock/models/' + encodeURIComponent(m.id), { headers: authHeaders() });
+        if (res.ok) {
+          const full = await res.json();
+          arnEl.value = full.inference_profile_arn || '';
+          document.getElementById('f-role').value = full.aws_role_name || '';
+        }
+        else { arnEl.value = ''; }
+      } catch (e) { arnEl.value = ''; }
+      arnEl.disabled = false;
+    }
+
+    function closeModal() { document.getElementById('modal').classList.remove('open'); }
+
+    function clearForm() {
+      ['f-model-id', 'f-arn', 'f-role', 'f-display-name', 'f-input-cost', 'f-output-cost', 'f-max-in', 'f-max-out', 'f-tags']
+        .forEach(function (id) { document.getElementById(id).value = ''; });
+      document.getElementById('f-mode').value = '';
+      document.getElementById('modal-error').textContent = '';
+      const fhint = document.getElementById('f-hint');
+      fhint.textContent = ''; fhint.style.display = 'none';
+    }
+
+    async function submitModal() {
+      const isEdit = editingModelId !== null;
+      const modelId = isEdit ? editingModelId : document.getElementById('f-model-id').value.trim();
+      if (!modelId) { document.getElementById('modal-error').textContent = 'Model ID is required.'; return; }
+      const body = {};
+      const arn = document.getElementById('f-arn').value.trim();
+      if (!isEdit) body.model_id = modelId;
+      if (arn) body.inference_profile_arn = arn;
+      const role = document.getElementById('f-role').value.trim();
+      if (role) body.aws_role_name = role;
+      const displayName = document.getElementById('f-display-name').value.trim();
+      if (displayName) body.display_name = displayName;
+      const mode = document.getElementById('f-mode').value;
+      if (mode) body.mode = mode;
+      const inCost = document.getElementById('f-input-cost').value;
+      if (inCost !== '') body.input_cost_per_token = parseFloat(inCost);
+      const outCost = document.getElementById('f-output-cost').value;
+      if (outCost !== '') body.output_cost_per_token = parseFloat(outCost);
+      const maxIn = document.getElementById('f-max-in').value;
+      if (maxIn !== '') body.max_input_tokens = parseInt(maxIn, 10);
+      const maxOut = document.getElementById('f-max-out').value;
+      if (maxOut !== '') body.max_output_tokens = parseInt(maxOut, 10);
+      body.tags = document.getElementById('f-tags').value.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+      body.enabled = document.getElementById('f-enabled').checked;
+      const url = isEdit ? BASE + '/bedrock/models/' + encodeURIComponent(modelId) : BASE + '/bedrock/models';
+      const method = isEdit ? 'PATCH' : 'POST';
+      try {
+        const res = await fetch(url, { method: method, headers: authHeaders(), body: JSON.stringify(body) });
+        const data = await res.json();
+        if (!res.ok) {
+          const detail = typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail);
+          document.getElementById('modal-error').textContent = detail; return;
+        }
+        closeModal();
+        showStatus((isEdit ? 'Updated' : 'Added') + ' model: ' + modelId, 'success');
+        fetchModels();
+      } catch (e) { document.getElementById('modal-error').textContent = e.message; }
+    }
+
+    async function deleteModel(modelId) {
+      if (!confirm('Delete this model from the registry?\n\n' + modelId)) return;
+      try {
+        const res = await fetch(BASE + '/bedrock/models/' + encodeURIComponent(modelId),
+          { method: 'DELETE', headers: authHeaders() });
+        if (!res.ok) { const d = await res.json(); showStatus('Delete failed: ' + (d.detail || res.status), 'error'); return; }
+        showStatus('Deleted: ' + modelId, 'success');
+        fetchModels();
+      } catch (e) { showStatus('Error: ' + e.message, 'error'); }
+    }
+
+    async function reloadRegistry() {
+      if (!confirm('Reload registry from DB?\n\nThis will re-sync the in-memory model list with the database. Any in-flight requests are unaffected.')) return;
+      try {
+        const res = await fetch(BASE + '/bedrock/models/reload', { method: 'POST', headers: authHeaders() });
+        const d = await res.json();
+        if (!res.ok) { showStatus('Reload failed: ' + (d.detail || res.status), 'error'); return; }
+        showStatus('Reloaded ' + d.models_loaded + ' model(s) from DB.', 'success');
+        fetchModels();
+      } catch (e) { showStatus('Error: ' + e.message, 'error'); }
+    }
+
+    async function autofillFromPrices(modelId) {
+      const hint = document.getElementById('f-hint');
+      hint.style.display = 'none';
+      if (!modelId || !getKey()) return;
+      try {
+        const res = await fetch(BASE + '/bedrock/models/prices?model_id=' + encodeURIComponent(modelId), { headers: authHeaders() });
+        if (!res.ok) return;
+        const d = await res.json();
+        if (!d.found) {
+          hint.textContent = 'Not found in LiteLLM model database — fill manually.';
+          hint.style.color = '#9ca3af'; hint.style.display = '';
+          return;
+        }
+        if (d.input_cost_per_token != null) document.getElementById('f-input-cost').value = d.input_cost_per_token;
+        if (d.output_cost_per_token != null) document.getElementById('f-output-cost').value = d.output_cost_per_token;
+        if (d.max_input_tokens != null) document.getElementById('f-max-in').value = d.max_input_tokens;
+        if (d.max_output_tokens != null) document.getElementById('f-max-out').value = d.max_output_tokens;
+        if (d.mode && !document.getElementById('f-mode').value) document.getElementById('f-mode').value = d.mode;
+        hint.textContent = 'Pre-filled from LiteLLM model database — update as needed.';
+        hint.style.color = '#2563eb'; hint.style.display = '';
+      } catch (e) {}
+    }
+
+    async function checkTableDrift(models) {
+      if (!models.length || !getKey()) return;
+      const priceMap = {};
+      await Promise.all(models.map(async function (m) {
+        try {
+          const res = await fetch(BASE + '/bedrock/models/prices?model_id=' + encodeURIComponent(m.id), { headers: authHeaders() });
+          if (res.ok) { const d = await res.json(); if (d.found) priceMap[m.id] = d; }
+        } catch (e) {}
+      }));
+      document.querySelectorAll('table tbody tr').forEach(function (tr, idx) {
+        const model = models[idx];
+        if (!model) return;
+        const cell = tr.querySelector('.sync-cell');
+        if (!cell) return;
+        cell.textContent = '';
+        const prices = priceMap[model.id];
+        const sp = document.createElement('span');
+        if (!prices) {
+          sp.className = 'sync-unknown'; sp.title = 'Not in LiteLLM model database';
+          sp.textContent = '—'; cell.appendChild(sp); return;
+        }
+        const drifts = [];
+        const eps = 1e-18;
+        if (prices.input_cost_per_token != null && model.input_cost_per_token != null
+          && Math.abs(prices.input_cost_per_token - model.input_cost_per_token) > eps) drifts.push('input cost');
+        if (prices.output_cost_per_token != null && model.output_cost_per_token != null
+          && Math.abs(prices.output_cost_per_token - model.output_cost_per_token) > eps) drifts.push('output cost');
+        if (prices.max_input_tokens != null && model.max_input_tokens != null
+          && prices.max_input_tokens !== model.max_input_tokens) drifts.push('max input tokens');
+        if (prices.max_output_tokens != null && model.max_output_tokens != null
+          && prices.max_output_tokens !== model.max_output_tokens) drifts.push('max output tokens');
+        if (drifts.length) {
+          sp.className = 'sync-warn';
+          sp.title = 'Differs from LiteLLM built-in pricing: ' + drifts.join(', ');
+          sp.textContent = '⚠ drift';
+        } else { sp.className = 'sync-ok'; sp.textContent = '✓'; }
+        cell.appendChild(sp);
+      });
+    }
+
+    document.getElementById('btn-save-key').addEventListener('click', function () {
+      const k = document.getElementById('api-key').value;
+      if (k) { localStorage.setItem('bedrock_registry_key', k); showStatus('API key saved.', 'success'); }
+    });
+    document.getElementById('btn-add').addEventListener('click', openAdd);
+    document.getElementById('btn-reload').addEventListener('click', reloadRegistry);
+    document.getElementById('btn-cancel').addEventListener('click', closeModal);
+    document.getElementById('modal-submit').addEventListener('click', submitModal);
+    document.getElementById('show-disabled').addEventListener('change', fetchModels);
+    document.getElementById('search-box').addEventListener('input', applySearch);
+    document.getElementById('btn-load-prices').addEventListener('click', async function () {
+      const modelId = editingModelId || document.getElementById('f-model-id').value.trim();
+      if (!modelId) { document.getElementById('modal-error').textContent = 'Enter a Model ID first.'; return; }
+      await autofillFromPrices(modelId);
+    });
+    document.getElementById('f-model-id').addEventListener('blur', async function () {
+      if (editingModelId !== null) return;
+      const mid = this.value.trim();
+      if (mid) await autofillFromPrices(mid);
+    });
+    document.getElementById('modal').addEventListener('click', function (e) { if (e.target === this) closeModal(); });
+
+    const savedKey = localStorage.getItem('bedrock_registry_key');
+    if (savedKey) document.getElementById('api-key').value = savedKey;
+    fetchModels();
+  }());
+  </script>
+</body>
+</html>

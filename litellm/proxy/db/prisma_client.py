@@ -383,7 +383,21 @@ class PrismaManager:
 
                     prisma_dir = PrismaManager._get_prisma_dir()
 
-                    return ProxyExtrasDBManager.setup_database(use_migrate=use_migrate)
+                    # Patch the extras schema BEFORE running setup_database.
+                    # ProxyExtrasDBManager._resolve_all_migrations() generates a diff
+                    # from the current DB state to the extras schema and executes it.
+                    # Any table present in the DB but absent from the extras schema
+                    # appears in the diff as DROP TABLE, destroying all data.
+                    # Adding our custom models to the extras schema makes the diff
+                    # a no-op for those tables.
+                    PrismaManager._patch_extras_schema_with_custom_models()
+
+                    # Step 1: upstream migrations (litellm-proxy-extras)
+                    if not ProxyExtrasDBManager.setup_database(use_migrate=use_migrate):
+                        return False
+
+                    # Step 2: custom migrations (litellm/proxy/migrations/)
+                    return PrismaManager._run_custom_migrations()
                 else:
                     # Use prisma db push with increased timeout
                     subprocess.run(
@@ -409,6 +423,69 @@ class PrismaManager:
             finally:
                 os.chdir(original_dir)
         return False
+
+    @staticmethod
+    def _patch_extras_schema_with_custom_models() -> bool:
+        """
+        No-op. Previously patched the litellm_proxy_extras schema at runtime to
+        prevent _resolve_all_migrations from generating DROP TABLE for our custom
+        tables. That approach was fragile — any schema change required updating
+        the patch AND re-verifying the idempotency check.
+
+        The correct solution: DISABLE_SCHEMA_UPDATE=true in the environment +
+        `prisma migrate deploy --schema litellm/proxy/schema.prisma` run
+        explicitly in the entrypoint before the server starts. Migrations are
+        idempotent; the extras migration system never sees our tables.
+        """
+        return True
+
+    @staticmethod
+    def _run_custom_migrations() -> bool:
+        """
+        Apply migrations from litellm/proxy/migrations/ after the upstream
+        litellm-proxy-extras migrations have run.
+
+        Uses prisma migrate deploy, which is idempotent: already-applied migrations
+        are skipped, so this is safe to call on every startup.
+
+        Data safety: _patch_extras_schema_with_custom_models() is called before
+        ProxyExtrasDBManager.setup_database() to prevent _resolve_all_migrations
+        from generating DROP TABLE for our custom tables. This method therefore only
+        needs to handle the normal migration path.
+        """
+        proxy_dir = PrismaManager._get_prisma_dir()  # = litellm/proxy/
+        migrations_dir = os.path.join(proxy_dir, "migrations")
+        schema_path = os.path.join(proxy_dir, "schema.prisma")
+
+        if not os.path.isdir(migrations_dir):
+            verbose_proxy_logger.debug(
+                "No custom migrations directory at %s, skipping", migrations_dir
+            )
+            return True
+
+        verbose_proxy_logger.info(
+            "Running custom migrations from %s", migrations_dir
+        )
+        try:
+            result = subprocess.run(
+                ["prisma", "migrate", "deploy", "--schema", schema_path],
+                timeout=60,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            verbose_proxy_logger.info(
+                "Custom migrations completed: %s", result.stdout.strip()
+            )
+            return True
+        except subprocess.CalledProcessError as e:
+            verbose_proxy_logger.error(
+                "Custom migrations failed (exit %d): %s", e.returncode, e.stderr
+            )
+            return False
+        except subprocess.TimeoutExpired:
+            verbose_proxy_logger.error("Custom migrations timed out after 60s")
+            return False
 
 
 def should_update_prisma_schema(

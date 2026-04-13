@@ -510,6 +510,7 @@ nlp_cloud_models: Set = set()
 aleph_alpha_models: Set = set()
 bedrock_models: Set = set()
 bedrock_converse_models: Set = set(BEDROCK_CONVERSE_MODELS)
+bedrock_model_registry: Dict[str, Dict[str, Optional[str]]] = {}  # model_id -> {arn, role}
 fal_ai_models: Set = set()
 fireworks_ai_models: Set = set()
 fireworks_ai_embedding_models: Set = set()

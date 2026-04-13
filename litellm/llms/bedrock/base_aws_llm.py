@@ -349,6 +349,18 @@ class BaseAWSLLM:
         provider: Optional[BEDROCK_INVOKE_PROVIDERS_LITERAL],
         model: str,
     ) -> str:
+        # Inject inference profile ARN from registry if model is whitelisted
+        # (lazy import to avoid circular imports at module load time)
+        if "model_id" not in optional_params:
+            import litellm  # noqa: PLC0415
+            if litellm.bedrock_model_registry:
+                _registry_entry = litellm.bedrock_model_registry.get(model)
+                if _registry_entry is not None:
+                    if _registry_entry.get("arn"):
+                        optional_params["model_id"] = _registry_entry["arn"]
+                    if _registry_entry.get("role") and "aws_role_name" not in optional_params:
+                        optional_params["aws_role_name"] = _registry_entry["role"]
+
         model_id = optional_params.pop("model_id", None)
         if model_id is not None:
             model_id = BaseAWSLLM.encode_model_id(model_id=model_id)
