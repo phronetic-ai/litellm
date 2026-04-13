@@ -287,6 +287,16 @@ class BedrockConverseLLM(BaseAWSLLM):
         ## SETUP ##
         stream: Final = optional_params.pop("stream", None)
         stream_chunk_size: Final = optional_params.pop("stream_chunk_size", None)
+
+        # Inject inference profile ARN (and optional cross-account role) from registry
+        if "model_id" not in optional_params and litellm.bedrock_model_registry:
+            _registry_entry = litellm.bedrock_model_registry.get(model)
+            if _registry_entry is not None:
+                if _registry_entry.get("arn"):
+                    optional_params["model_id"] = _registry_entry["arn"]
+                if _registry_entry.get("role") and "aws_role_name" not in optional_params:
+                    optional_params["aws_role_name"] = _registry_entry["role"]
+
         unencoded_model_id: Final = optional_params.pop("model_id", None)
         fake_stream = optional_params.pop("fake_stream", False)
         json_mode: Final = optional_params.get("json_mode", False)

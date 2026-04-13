@@ -932,10 +932,15 @@ class PrismaManager:
 
                     prisma_dir = PrismaManager._get_prisma_dir()
 
-                    return ProxyExtrasDBManager.setup_database(
+                    # Step 1: upstream migrations (litellm-proxy-extras)
+                    if not ProxyExtrasDBManager.setup_database(
                         use_migrate=use_migrate,
                         use_v2_resolver=use_v2_resolver,
-                    )
+                    ):
+                        return False
+
+                    # Step 2: custom migrations (litellm/proxy/migrations/)
+                    return PrismaManager._run_custom_migrations()
                 else:
                     PrismaManager._raise_if_partitioned_spend_logs()
                     # Use prisma db push with increased timeout
@@ -963,6 +968,57 @@ class PrismaManager:
             finally:
                 os.chdir(original_dir)
         return False
+
+    @staticmethod
+    def _run_custom_migrations() -> bool:
+        """
+        Apply migrations from litellm/proxy/migrations/ after the upstream
+        litellm-proxy-extras migrations have run.
+
+        Uses prisma migrate deploy, which is idempotent: already-applied migrations
+        are skipped, so this is safe to call on every startup.
+
+        Data safety: this method (and the upstream setup_database() call before it)
+        is only reached when DISABLE_SCHEMA_UPDATE is unset. In production,
+        DISABLE_SCHEMA_UPDATE=true is set (see Dockerfile) and schema changes are
+        instead applied explicitly in the entrypoint via
+        `prisma migrate deploy --schema litellm/proxy/schema.prisma`, which covers
+        our custom tables directly and never runs the extras diff-based recovery
+        that could otherwise generate a DROP TABLE for tables it doesn't know about.
+        """
+        proxy_dir = PrismaManager._get_prisma_dir()  # = litellm/proxy/
+        migrations_dir = os.path.join(proxy_dir, "migrations")
+        schema_path = os.path.join(proxy_dir, "schema.prisma")
+
+        if not os.path.isdir(migrations_dir):
+            verbose_proxy_logger.debug(
+                "No custom migrations directory at %s, skipping", migrations_dir
+            )
+            return True
+
+        verbose_proxy_logger.info(
+            "Running custom migrations from %s", migrations_dir
+        )
+        try:
+            result = subprocess.run(
+                ["prisma", "migrate", "deploy", "--schema", schema_path],
+                timeout=60,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            verbose_proxy_logger.info(
+                "Custom migrations completed: %s", result.stdout.strip()
+            )
+            return True
+        except subprocess.CalledProcessError as e:
+            verbose_proxy_logger.error(
+                "Custom migrations failed (exit %d): %s", e.returncode, e.stderr
+            )
+            return False
+        except subprocess.TimeoutExpired:
+            verbose_proxy_logger.error("Custom migrations timed out after 60s")
+            return False
 
 
 def should_update_prisma_schema(

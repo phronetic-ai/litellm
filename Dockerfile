@@ -150,5 +150,10 @@ RUN find /app/.venv -type f -path "*/tornado/test/*" -delete && \
 
 EXPOSE 4000/tcp
 
+# Disable LiteLLM's built-in auto-migration on startup.
+# Migrations are run explicitly in prod_entrypoint.sh via `prisma migrate deploy`
+# before the server starts, so the proxy never needs to touch the schema itself.
+ENV DISABLE_SCHEMA_UPDATE=true
+
 ENTRYPOINT ["docker/prod_entrypoint.sh"]
 CMD ["--port", "4000"]
