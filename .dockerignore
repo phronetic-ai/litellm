@@ -38,6 +38,7 @@ __pycache__/
 # Files that don't affect the build (prevent unnecessary cache invalidation)
 docker-compose*.yml
 *.md
+!README.md
 Makefile
 
 # Common project exclusions
