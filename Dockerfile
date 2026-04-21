@@ -106,8 +106,6 @@ RUN sed -i 's/\r$//' docker/install_auto_router.sh && chmod +x docker/install_au
 
 # Generate prisma client using the correct schema
 RUN prisma generate --schema=./litellm/proxy/schema.prisma
-# Validate custom schema (catches schema errors at build time, not at runtime)
-RUN prisma validate --schema=./litellm/proxy/schema.prisma
 # Convert Windows line endings to Unix for entrypoint scripts
 RUN sed -i 's/\r$//' docker/entrypoint.sh && chmod +x docker/entrypoint.sh
 RUN sed -i 's/\r$//' docker/prod_entrypoint.sh && chmod +x docker/prod_entrypoint.sh

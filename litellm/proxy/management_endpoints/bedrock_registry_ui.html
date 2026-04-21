@@ -411,7 +411,6 @@
       const mid = this.value.trim();
       if (mid) await autofillFromPrices(mid);
     });
-    document.getElementById('modal').addEventListener('click', function (e) { if (e.target === this) closeModal(); });
 
     const savedKey = localStorage.getItem('bedrock_registry_key');
     if (savedKey) document.getElementById('api-key').value = savedKey;
