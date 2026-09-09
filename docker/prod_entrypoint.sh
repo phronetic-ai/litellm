@@ -8,7 +8,7 @@
 # diffing logic from touching our custom tables.
 if [ -n "$DATABASE_URL" ]; then
     echo "Running custom DB migrations..."
-    prisma migrate deploy --schema /app/litellm/proxy/schema.prisma
+    prisma migrate deploy --schema /app/schema.prisma
     if [ $? -ne 0 ]; then
         echo "ERROR: DB migration failed, aborting startup"
         exit 1
