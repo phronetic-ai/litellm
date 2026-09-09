@@ -465,6 +465,18 @@ def _reject_url_valued_fallback_target(value: str) -> None:
         )
 
 
+# Admin-only config-persistence routes exempt from the clientside credential
+# check below. No field in these bodies drives a live outbound call the way
+# /chat/completions's api_base does — it's proxy-admin config written to the
+# DB, gated separately by a PROXY_ADMIN role check inside the handler.
+# (/model/new needs no equivalent entry: its credentials live under
+# litellm_params, a key _check_banned_params never descends into.)
+_CLIENTSIDE_CREDENTIAL_CHECK_EXEMPT_ROUTES: Final[tuple[str, ...]] = (
+    "/bedrock/models",
+    "/bedrock/models/{model_id:path}",
+)
+
+
 def is_request_body_safe(request_body: dict, general_settings: dict, llm_router: Router | None, model: str) -> bool:
     """
     Check if the request body is safe.
@@ -567,18 +579,20 @@ async def pre_db_read_auth_checks(
     Raises:
     - HTTPException if request fails initial auth checks
     """
+    from litellm.proxy.auth.route_checks import RouteChecks
     from litellm.proxy.proxy_server import general_settings, llm_router, premium_user
 
     # Check 1. request size
     await check_if_request_size_is_safe(request=request)
 
     # Check 2. Request body is safe
-    is_request_body_safe(
-        request_body=request_data,
-        general_settings=general_settings,
-        llm_router=llm_router,
-        model=request_data.get("model", ""),  # [TODO] use model passed in url as well (azure openai routes)
-    )
+    if not RouteChecks.check_route_access(route=route, allowed_routes=_CLIENTSIDE_CREDENTIAL_CHECK_EXEMPT_ROUTES):
+        is_request_body_safe(
+            request_body=request_data,
+            general_settings=general_settings,
+            llm_router=llm_router,
+            model=request_data.get("model", ""),  # [TODO] use model passed in url as well (azure openai routes)
+        )
 
     # Check 3. Check if IP address is allowed
     is_valid_ip, passed_in_ip = _check_valid_ip(
