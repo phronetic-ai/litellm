@@ -468,6 +468,12 @@ from litellm.proxy.logging_endpoints.callback_logs_endpoints import (
 from litellm.proxy.management_endpoints.auto_router_endpoints import (
     router as auto_router_management_router,
 )
+from litellm.proxy.management_endpoints.bedrock_model_registry_endpoints import (
+    load_bedrock_registry_from_db,
+)
+from litellm.proxy.management_endpoints.bedrock_model_registry_endpoints import (
+    router as bedrock_model_registry_router,
+)
 from litellm.proxy.management_endpoints.budget_management_endpoints import (
     router as budget_management_router,
 )
@@ -1284,6 +1290,10 @@ async def proxy_startup_event(app: FastAPI) -> AsyncGenerator[None, None]:
         max_budget=litellm.max_budget,
         prisma_client=prisma_client,
     )
+
+    ## BEDROCK MODEL REGISTRY ##
+    if prisma_client is not None:
+        await load_bedrock_registry_from_db(prisma_client)
 
     ### START BATCH WRITING DB + CHECKING NEW MODELS###
     worker_heartbeat: Final = (
@@ -18350,6 +18360,7 @@ app.include_router(credential_router)
 app.include_router(openai_passthrough_router)
 app.include_router(batches_router)
 app.include_router(openai_files_router)
+app.include_router(bedrock_model_registry_router)
 app.include_router(llm_passthrough_router)
 app.include_router(pass_through_router)
 app.include_router(health_router)

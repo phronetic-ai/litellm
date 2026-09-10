@@ -301,6 +301,41 @@ async def test_user_api_key_auth_fails_with_prohibited_params(prohibited_param):
     assert "is not allowed in request body" in error_message
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "route",
+    ["/bedrock/models", "/bedrock/models/anthropic.claude-3-sonnet", "/bedrock/models/us/anthropic.claude"],
+)
+async def test_user_api_key_auth_allows_aws_role_name_on_bedrock_registry_routes(route):
+    """
+    The Bedrock model registry (POST/PATCH /bedrock/models...) persists
+    aws_role_name as PROXY_ADMIN-only config in the DB; unlike
+    /chat/completions's api_base, it's never used to redirect a live
+    outbound call, so these routes must stay exempt from the huntr
+    4001e1a2 clientside-credential-passthrough check that
+    test_user_api_key_auth_fails_with_prohibited_params enforces elsewhere.
+    """
+    import json
+
+    from fastapi import Request
+
+    user_key = "sk-1234"
+    setattr(litellm.proxy.proxy_server, "master_key", "sk-1234")
+
+    request = Request(scope={"type": "http", "headers": []})
+    request._url = URL(url=route)
+
+    async def return_body():
+        body = {"aws_role_name": "arn:aws:iam::123456789012:role/bedrock-role"}
+        return bytes(json.dumps(body), "utf-8")
+
+    request.body = return_body
+    # Should not raise -- the master key alone is enough to pass this
+    # dependency; the endpoint's own PROXY_ADMIN check happens later, inside
+    # the route handler.
+    await user_api_key_auth(request=request, api_key="Bearer " + user_key)
+
+
 @pytest.mark.asyncio()
 @pytest.mark.parametrize(
     "route, should_raise_error",
