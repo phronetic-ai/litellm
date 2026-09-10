@@ -881,6 +881,11 @@ def _get_openai_compatible_provider_info(
     elif custom_llm_provider == "gigachat":
         api_base = api_base or get_secret_str("GIGACHAT_API_BASE") or "https://gigachat.devices.sberbank.ru/api/v1"
         dynamic_api_key = api_key or get_secret_str("GIGACHAT_API_KEY")
+    elif custom_llm_provider == "thesys":
+        (
+            api_base,
+            dynamic_api_key,
+        ) = litellm.ThesysChatConfig()._get_openai_compatible_provider_info(api_base, api_key)
 
     if api_base is not None and not isinstance(api_base, str):
         raise Exception(f"api base needs to be a string. api_base={api_base}")
