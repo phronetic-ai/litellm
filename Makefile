@@ -11,7 +11,8 @@
 	lint-test-quality lint-test-quality-budget-update \
 	install-dev install-proxy-dev install-test-deps install-hooks \
 	install-helm-unittest check-circular-imports check-import-safety check check-inner pre-commit \
-	lint-install lint-fetch-base bootstrap
+	lint-install lint-fetch-base bootstrap \
+	push-image
 
 # Default target
 help:
@@ -56,9 +57,14 @@ help:
 	@echo "  make test-integration   - Run integration tests"
 	@echo "  make test-unit-helm     - Run helm unit tests"
 	@echo "  make test-rust-extension - Build the Rust extension and run its public Python tests"
+	@echo "  make push-image         - Build ARM64 image and push to ECR"
 	@echo ""
 	@echo "Heavy targets (check, lint) queue for LITELLM_GATE_SLOTS machine-wide"
 	@echo "slots (default 2; 0 disables) so parallel sessions don't thrash one machine."
+
+# Docker image build and push (ARM64)
+push-image:
+	docker compose build --push litellm
 
 UV := uv
 UV_RUN := $(UV) run --no-sync
