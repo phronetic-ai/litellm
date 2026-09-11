@@ -920,14 +920,21 @@ def bedrock_converse_supports_strict_tools(model: str) -> bool:
     """
     Whether ``toolSpec.strict`` can be forwarded to Bedrock Converse for ``model``.
 
-    Non-Anthropic Bedrock families (Nova, Llama, GPT-OSS) reject the field
-    outright. Anthropic models forward it unless their entry in
+    Off for every model unless ``litellm.bedrock_forward_strict_tools`` is set:
+    Bedrock compiles a grammar per strict toolSpec and rejects the request once
+    the compiled size passes ~300MB, which trivial schemas (a handful of optional
+    string/int fields) already trigger.
+
+    When enabled, non-Anthropic Bedrock families (Nova, Llama, GPT-OSS) still
+    never get the field, and Anthropic models forward it unless their entry in
     ``model_prices_and_context_window.json`` sets
     ``bedrock_converse_supports_strict_tools: false`` — Bedrock routes those
     (Opus 4.7/4.8, see #31582) through a stricter validator that rejects the
     ``strict`` key on ``toolSpec`` even though Anthropic's native API accepts
     it as a top-level tool field.
     """
+    if not litellm.bedrock_forward_strict_tools:
+        return False
     base: Final = get_bedrock_base_model(model)
     if not base.startswith("anthropic"):
         return False

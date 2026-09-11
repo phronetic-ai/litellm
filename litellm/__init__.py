@@ -623,6 +623,9 @@ aleph_alpha_models: Set = set()
 bedrock_models: Set = set()
 bedrock_converse_models: Set = set(BEDROCK_CONVERSE_MODELS)
 bedrock_model_registry: Dict[str, Dict[str, Optional[str]]] = {}  # model_id -> {arn, role}
+# Opt-in: Bedrock compiles a grammar for every strict toolSpec and 400s past its
+# ~300MB ceiling even for tiny schemas, so `strict` is dropped on Converse by default.
+bedrock_forward_strict_tools: bool = False
 fal_ai_models: Set = set()
 fireworks_ai_models: Set = set()
 fireworks_ai_embedding_models: Set = set()

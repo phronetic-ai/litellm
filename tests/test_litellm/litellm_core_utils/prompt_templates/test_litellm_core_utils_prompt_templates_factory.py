@@ -975,14 +975,17 @@ def test_bedrock_tools_unpack_defs():
     _bedrock_tools_pt(tools=tools)
 
 
-def test_bedrock_tools_pt_strict_parameter():
+def test_bedrock_tools_pt_strict_parameter(monkeypatch):
     """Regression for strict tools on the Bedrock Converse path.
 
-    Claude on Bedrock honours strict in toolSpec (with additionalProperties, which
-    Bedrock requires alongside strict); without forwarding it the model ignores the
-    enum constraint the caller asked for. Every other Bedrock family (Nova, Llama,
-    GPT-OSS) rejects the strict field, so it must only be forwarded for Claude.
+    Forwarding is opt-in via ``litellm.bedrock_forward_strict_tools`` (Bedrock's
+    grammar compiler 400s on tiny strict schemas). Once opted in, Claude on Bedrock
+    honours strict in toolSpec (with additionalProperties, which Bedrock requires
+    alongside strict); without forwarding it the model ignores the enum constraint
+    the caller asked for. Every other Bedrock family (Nova, Llama, GPT-OSS) rejects
+    the strict field, so it must only be forwarded for Claude.
     """
+    monkeypatch.setattr(litellm, "bedrock_forward_strict_tools", True)
     tools_with_strict = [
         {
             "type": "function",
