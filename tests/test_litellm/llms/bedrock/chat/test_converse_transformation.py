@@ -4007,6 +4007,36 @@ def test_create_output_config_for_response_format():
     assert parsed_schema == expected
 
 
+def test_create_output_config_strips_grammar_unsupported_constraints():
+    """Regression: Bedrock rejected this schema with "output_config.format.schema: For
+    'number' type, properties maximum, minimum are not supported". The constraints must
+    be dropped from the wire schema and preserved as a description note instead."""
+    schema = {
+        "type": "object",
+        "properties": {
+            "reasoning": {"type": "string", "minLength": 1},
+            "score": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+            "tags": {"type": "array", "items": {"type": "string"}, "maxItems": 5},
+        },
+        "required": ["reasoning", "score"],
+        "additionalProperties": False,
+    }
+
+    output_config = AmazonConverseConfig._create_output_config_for_response_format(
+        json_schema=schema, name="judgement"
+    )
+    sent = json.loads(output_config["textFormat"]["structure"]["jsonSchema"]["schema"])
+
+    score = sent["properties"]["score"]
+    assert score["type"] == "number"
+    assert "minimum" not in score and "maximum" not in score
+    assert score["description"] == "Note: minimum value: 0.0, maximum value: 1.0."
+    assert "minLength" not in sent["properties"]["reasoning"]
+    assert "maxItems" not in sent["properties"]["tags"]
+    assert sent["required"] == ["reasoning", "score"]
+    assert sent["additionalProperties"] is False
+
+
 def test_translate_response_format_native_output_config(monkeypatch):
     """For supported models, _translate_response_format_param should produce outputConfig."""
     old_env = os.environ.get("LITELLM_LOCAL_MODEL_COST_MAP")

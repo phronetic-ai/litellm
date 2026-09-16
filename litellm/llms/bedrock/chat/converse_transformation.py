@@ -835,9 +835,17 @@ class AmazonConverseConfig(BaseConfig):
                 }
             }
         }
+
+        Bedrock compiles the schema into a constrained-decoding grammar and rejects
+        keywords it cannot enforce (e.g. "For 'number' type, properties maximum,
+        minimum are not supported"), so the schema goes through the same filter as
+        Anthropic's ``output_format``: unsupported constraints are dropped and noted
+        in the field description instead.
         """
         if json_schema is not None:
-            json_schema = AmazonConverseConfig._add_additional_properties_to_schema(json_schema)
+            json_schema = AmazonConverseConfig._add_additional_properties_to_schema(
+                AnthropicConfig.filter_anthropic_output_schema(json_schema)
+            )
         schema_str: Final = json.dumps(json_schema) if json_schema is not None else "{}"
         json_schema_def: Final[JsonSchemaDefinition] = {"schema": schema_str}
         if name is not None:
